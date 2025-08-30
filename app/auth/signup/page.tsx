@@ -5,16 +5,44 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabaseClient';
 
 export default function SignUp() {
+  const router = useRouter();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // This is a placeholder for registration logic
-    console.log('Sign up with:', name, email, password);
+    setLoading(true);
+    setError('');
+    
+    try {
+      // Sign up with Supabase
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name,
+          },
+        },
+      });
+
+      if (error) throw error;
+      
+      // Redirect to sign-in page after successful sign-up
+      router.push('/auth/signin');
+    } catch (err: any) {
+      console.error('Error signing up:', err);
+      setError(err.message || 'An error occurred during sign-up');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -65,10 +93,11 @@ export default function SignUp() {
                 required
               />
             </div>
+            {error && <p className="text-red-500 text-sm">{error}</p>}
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
-            <Button type="submit" className="w-full">
-              Sign Up
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? 'Signing up...' : 'Sign Up'}
             </Button>
             <div className="text-sm text-center">
               Already have an account?{' '}
