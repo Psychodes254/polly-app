@@ -1,96 +1,120 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+import { supabase } from '@/lib/supabaseClient';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
+import { Database } from '@/types/supabase';
 
-// Default mock data for polls
-const defaultPolls = [
-  {
-    id: '1',
-    title: 'Favorite Programming Language',
-    description: 'What is your favorite programming language?',
-    options: ['JavaScript', 'Python', 'Java', 'C#', 'Go'],
-    votes: { 'JavaScript': 15, 'Python': 12, 'Java': 8, 'C#': 5, 'Go': 2 },
-    createdBy: 'John Doe',
-    createdAt: '2023-05-15',
-  },
-  {
-    id: '2',
-    title: 'Best Frontend Framework',
-    description: 'Which frontend framework do you prefer?',
-    options: ['React', 'Vue', 'Angular', 'Svelte'],
-    votes: { 'React': 20, 'Vue': 8, 'Angular': 6, 'Svelte': 4 },
-    createdBy: 'Jane Smith',
-    createdAt: '2023-05-10',
-  },
-  {
-    id: '3',
-    title: 'Preferred Database',
-    description: 'What database do you use most often?',
-    options: ['PostgreSQL', 'MySQL', 'MongoDB', 'SQLite', 'Redis'],
-    votes: { 'PostgreSQL': 10, 'MySQL': 8, 'MongoDB': 5, 'SQLite': 3, 'Redis': 1 },
-    createdBy: 'Alex Johnson',
-    createdAt: '2023-05-05',
-  },
-];
+type Poll = Database['public']['Tables']['polls']['Row'] & {
+  options_count: number;
+  total_votes: number;
+};
 
 export default function PollsPage() {
-  const [polls, setPolls] = useState(defaultPolls);
-  
-  useEffect(() => {
-    // Load polls from localStorage if available
+  const { user } = useAuth();
+  const [polls, setPolls] = useState<Poll[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchPolls = useCallback(async () => {
     try {
-      const storedPolls = localStorage.getItem('polls');
-      if (storedPolls) {
-        const parsedPolls = JSON.parse(storedPolls);
-        // Combine default polls with stored polls, avoiding duplicates by ID
-        const allPolls = [...defaultPolls];
-        parsedPolls.forEach((newPoll: any) => {
-          if (!allPolls.some(poll => poll.id === newPoll.id)) {
-            allPolls.push(newPoll);
-          }
-        });
-        setPolls(allPolls);
-      }
-    } catch (error) {
-      console.error('Error loading polls from localStorage:', error);
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('polls')
+        .select(`
+          *,
+          poll_options (id),
+          votes (id)
+        `);
+
+      if (error) throw error;
+
+      const formattedPolls = data.map(poll => ({
+        ...poll,
+        options_count: poll.poll_options.length,
+        total_votes: poll.votes.length,
+      }));
+
+      setPolls(formattedPolls);
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    fetchPolls();
+  }, [fetchPolls]);
+
+  const handleDelete = async (pollId: string) => {
+    if (!window.confirm('Are you sure you want to delete this poll?')) return;
+
+    try {
+      // First, delete votes associated with the poll
+      const { error: votesError } = await supabase.from('votes').delete().eq('poll_id', pollId);
+      if (votesError) throw votesError;
+
+      // Second, delete poll options
+      const { error: optionsError } = await supabase.from('poll_options').delete().eq('poll_id', pollId);
+      if (optionsError) throw optionsError;
+
+      // Finally, delete the poll itself
+      const { error: pollError } = await supabase.from('polls').delete().eq('id', pollId);
+      if (pollError) throw pollError;
+
+      toast.success('Poll deleted successfully!');
+      fetchPolls(); // Refresh the polls list
+    } catch (error: any) {
+      toast.error(error.message);
+    }
+  };
+
   return (
     <div className="container mx-auto py-8 px-4">
       <h1 className="text-3xl font-bold mb-8">Available Polls</h1>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {polls.length === 0 ? (
-          <p className="col-span-3 text-center py-8 text-neutral-500">No polls available. Create your first poll!</p>
-        ) : (
-          polls.map((poll) => {
-            // Calculate total votes for each poll
-            const totalVotes = poll.votes ? 
-              Object.values(poll.votes).reduce((sum: number, count: any) => sum + (typeof count === 'number' ? count : 0), 0) : 0;
-            
-            return (
-              <Link href={`/polls/${poll.id}`} key={poll.id}>
-                <Card className="h-full hover:shadow-md transition-shadow cursor-pointer">
+
+      {loading ? (
+        <div className="text-center">
+          <p>Loading polls...</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {polls.length === 0 ? (
+            <p className="col-span-3 text-center py-8 text-neutral-500">No polls available. Create your first poll!</p>
+          ) : (
+            polls.map((poll) => (
+              <Card key={poll.id} className="h-full flex flex-col">
+                <Link href={`/polls/${poll.id}`} className="flex-grow">
                   <CardHeader>
                     <CardTitle>{poll.title}</CardTitle>
                     <CardDescription>{poll.description}</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <p className="text-sm text-neutral-600">
-                      {poll.options.length} options • {totalVotes} votes
+                      {poll.options_count} options • {poll.total_votes} votes
                     </p>
                   </CardContent>
-                  <CardFooter className="text-xs text-neutral-500">
-                    <p>Created by {poll.createdBy} on {poll.createdAt}</p>
-                  </CardFooter>
-                </Card>
-              </Link>
-            );
-          })
-        )}
-      </div>
+                </Link>
+                <CardFooter className="text-xs text-neutral-500 flex justify-between items-center">
+                  <p>Created on {new Date(poll.created_at!).toLocaleDateString()}</p>
+                  {user && user.id === poll.creator_id && (
+                    <div className="flex gap-2">
+                      <Link href={`/polls/${poll.id}/edit`}>
+                        <Button variant="outline" size="sm">Edit</Button>
+                      </Link>
+                      <Button variant="destructive" size="sm" onClick={() => handleDelete(poll.id)}>Delete</Button>
+                    </div>
+                  )}
+                </CardFooter>
+              </Card>
+            ))
+          )}
+        </div>
+      )}
     </div>
   );
 }

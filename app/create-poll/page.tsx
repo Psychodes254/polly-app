@@ -6,9 +6,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { supabase } from '@/lib/supabaseClient';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 
 export default function CreatePollPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [options, setOptions] = useState(['', '']);
@@ -34,48 +38,51 @@ export default function CreatePollPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    
-    // Validate form data
-    if (!title.trim()) {
-      alert('Please enter a poll title');
+
+    if (!user) {
+      toast.error('You must be logged in to create a poll.');
       setIsSubmitting(false);
       return;
     }
-    
+
+    if (!title.trim()) {
+      toast.error('Please enter a poll title');
+      setIsSubmitting(false);
+      return;
+    }
+
     const validOptions = options.filter(option => option.trim() !== '');
     if (validOptions.length < 2) {
-      alert('Please provide at least 2 valid options');
+      toast.error('Please provide at least 2 valid options');
       setIsSubmitting(false);
       return;
     }
-    
-    // This is a placeholder for poll creation logic
-    const pollData = {
-      id: Date.now().toString(), // Generate a temporary ID
-      title,
-      description,
-      options: validOptions,
-      votes: {}, // Initialize empty votes
-      createdBy: 'Anonymous User',
-      createdAt: new Date().toISOString().split('T')[0],
-    };
-    
-    console.log('Creating poll:', pollData);
-    
-    // Simulate API call with a timeout
+
     try {
-      // In a real app, you would send the data to your API here
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Store poll data in localStorage for demo purposes
-      // In a real app, this would be handled by a backend API
-      const existingPolls = JSON.parse(localStorage.getItem('polls') || '[]');
-      localStorage.setItem('polls', JSON.stringify([...existingPolls, pollData]));
-      
-      // Redirect to polls page after successful creation
+      // Insert the poll into the polls table
+      const { data: pollData, error: pollError } = await supabase
+        .from('polls')
+        .insert({ title, description, creator_id: user.id })
+        .select()
+        .single();
+
+      if (pollError) throw pollError;
+
+      // Insert the options into the poll_options table
+      const optionInserts = validOptions.map((option, index) => ({
+        poll_id: pollData.id,
+        option_text: option,
+        option_order: index,
+      }));
+
+      const { error: optionsError } = await supabase.from('poll_options').insert(optionInserts);
+
+      if (optionsError) throw optionsError;
+
+      toast.success('Poll created successfully!');
       router.push('/polls');
-    } catch (error) {
-      console.error('Error creating poll:', error);
+    } catch (error: any) {
+      toast.error(error.message);
       setIsSubmitting(false);
     }
   };
@@ -103,7 +110,7 @@ export default function CreatePollPage() {
                 required
               />
             </div>
-            
+
             <div className="space-y-2">
               <label htmlFor="description" className="text-sm font-medium">
                 Description (Optional)
@@ -116,7 +123,7 @@ export default function CreatePollPage() {
                 rows={3}
               />
             </div>
-            
+
             <div className="space-y-3">
               <label className="text-sm font-medium">
                 Poll Options
@@ -143,7 +150,7 @@ export default function CreatePollPage() {
               ))}
               <Button 
                 type="button" 
-                variant="outline" 
+                variant="outline"
                 onClick={handleAddOption}
                 className="w-full mt-2"
               >
