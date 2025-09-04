@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { createPoll } from '@/lib/poll-actions';
 
 export default function CreatePollPage() {
   const router = useRouter();
@@ -58,31 +59,25 @@ export default function CreatePollPage() {
       return;
     }
 
+    const formData = new FormData();
+    formData.append('title', title);
+    formData.append('description', description);
+    formData.append('options', JSON.stringify(validOptions));
+    // The creatorId is now handled securely on the server.
+
     try {
-      // Insert the poll into the polls table
-      const { data: pollData, error: pollError } = await supabase
-        .from('polls')
-        .insert({ title, description, creator_id: user.id })
-        .select()
-        .single();
+      const result = await createPoll(formData);
 
-      if (pollError) throw pollError;
-
-      // Insert the options into the poll_options table
-      const optionInserts = validOptions.map((option, index) => ({
-        poll_id: pollData.id,
-        option_text: option,
-        option_order: index,
-      }));
-
-      const { error: optionsError } = await supabase.from('poll_options').insert(optionInserts);
-
-      if (optionsError) throw optionsError;
+      if (result.error) {
+        throw new Error(result.error);
+      }
 
       toast.success('Poll created successfully!');
-      router.push('/polls');
+      router.push(`/polls/${result.data?.pollId}`);
     } catch (error: any) {
-      toast.error(error.message);
+      console.error('Failed to create poll:', error);
+      toast.error(error.message || 'An unexpected error occurred.');
+    } finally {
       setIsSubmitting(false);
     }
   };

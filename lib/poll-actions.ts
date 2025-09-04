@@ -1,50 +1,55 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { redirect } from 'next/navigation';
 import { getSupabaseClient } from '@/lib/supabase-client';
-import { 
-  CreatePollInput, 
-  VotePollInput, 
-  DeletePollInput, 
+import {
+  CreatePollInput,
+  VotePollInput,
+  DeletePollInput,
   PollActionResult,
   PollResult
 } from '@/lib/types/poll-types';
-import { 
+import {
   validateCreatePollInput,
   validateVotePollInput,
   validateDeletePollInput,
   assertValidInput
 } from '@/lib/validation/poll-validation';
-import { 
-  validateUserId,
+import {
+  AuthenticationError,
   verifyPollOwnership,
   checkExistingVote
 } from '@/lib/auth/auth-utils';
-import { withErrorHandling, createSuccessResponse } from '@/lib/utils/error-utils';
+import { withErrorHandling } from '@/lib/utils/error-utils';
+import { createSupabaseServerClient } from '@/lib/utils/supabase/server';
 
 /**
  * Creates a new poll with options
  */
 export async function createPoll(formData: FormData): Promise<PollActionResult<{ pollId: string }>> {
   return withErrorHandling(async () => {
+    const supabase = await createSupabaseServerClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      throw new AuthenticationError('You must be logged in to create a poll.');
+    }
+
     const input: CreatePollInput = {
       title: formData.get('title') as string,
       description: formData.get('description') as string,
-      creatorId: formData.get('creatorId') as string,
+      creatorId: user.id, // Use authenticated user's ID
       options: JSON.parse(formData.get('options') as string) as string[],
       allowMultipleVotes: formData.get('allowMultipleVotes') === 'true',
       expiresAt: formData.get('expiresAt') as string || undefined
     };
 
-    // Validate input
     assertValidInput(input, validateCreatePollInput);
 
-    const supabase = getSupabaseClient();
     const validOptions = input.options.filter(option => option.trim() !== '');
+    const adminSupabase = getSupabaseClient();
 
-    // Insert the poll
-    const { data: pollData, error: pollError } = await supabase
+    const { data: pollData, error: pollError } = await adminSupabase
       .from('polls')
       .insert({
         title: input.title.trim(),
@@ -56,24 +61,17 @@ export async function createPoll(formData: FormData): Promise<PollActionResult<{
       .select()
       .single();
 
-    if (pollError) {
-      throw new Error(`Failed to create poll: ${pollError.message}`);
-    }
+    if (pollError) throw new Error(`Failed to create poll: ${pollError.message}`);
 
-    // Insert the options
     const optionInserts = validOptions.map((option, index) => ({
       poll_id: pollData.id,
       option_text: option.trim(),
       option_order: index,
     }));
 
-    const { error: optionsError } = await supabase
-      .from('poll_options')
-      .insert(optionInserts);
+    const { error: optionsError } = await adminSupabase.from('poll_options').insert(optionInserts);
 
-    if (optionsError) {
-      throw new Error(`Failed to create poll options: ${optionsError.message}`);
-    }
+    if (optionsError) throw new Error(`Failed to create poll options: ${optionsError.message}`);
 
     revalidatePath('/polls');
     return { pollId: pollData.id };
@@ -85,37 +83,36 @@ export async function createPoll(formData: FormData): Promise<PollActionResult<{
  */
 export async function votePoll(formData: FormData): Promise<PollActionResult<void>> {
   return withErrorHandling(async () => {
+    const supabase = await createSupabaseServerClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      throw new AuthenticationError('You must be logged in to vote.');
+    }
+
     const input: VotePollInput = {
       pollId: formData.get('pollId') as string,
       optionId: formData.get('optionId') as string,
-      voterId: formData.get('voterId') as string,
+      voterId: user.id, // Use authenticated user's ID
       voterIp: formData.get('voterIp') as string || undefined
     };
 
-    // Validate input
     assertValidInput(input, validateVotePollInput);
 
-    // Check if user has already voted
     const hasVoted = await checkExistingVote(input.pollId, input.voterId);
     if (hasVoted) {
       throw new Error('You have already voted on this poll');
     }
 
-    const supabase = getSupabaseClient();
+    const adminSupabase = getSupabaseClient();
+    const { error } = await adminSupabase.from('votes').insert({
+      poll_id: input.pollId,
+      option_id: input.optionId,
+      voter_id: input.voterId,
+      voter_ip: input.voterIp || null
+    });
 
-    // Insert the vote
-    const { error } = await supabase
-      .from('votes')
-      .insert({
-        poll_id: input.pollId,
-        option_id: input.optionId,
-        voter_id: input.voterId,
-        voter_ip: input.voterIp || null
-      });
-
-    if (error) {
-      throw new Error(`Failed to submit vote: ${error.message}`);
-    }
+    if (error) throw new Error(`Failed to submit vote: ${error.message}`);
 
     revalidatePath(`/polls/${input.pollId}`);
   });
@@ -131,14 +128,9 @@ export async function getPollResults(pollId: string): Promise<PollActionResult<P
     }
 
     const supabase = getSupabaseClient();
-    
-    const { data, error } = await supabase.rpc('get_poll_results', {
-      poll_uuid: pollId,
-    });
+    const { data, error } = await supabase.rpc('get_poll_results', { poll_uuid: pollId });
 
-    if (error) {
-      throw new Error(`Failed to get poll results: ${error.message}`);
-    }
+    if (error) throw new Error(`Failed to get poll results: ${error.message}`);
 
     return data || [];
   });
@@ -149,50 +141,49 @@ export async function getPollResults(pollId: string): Promise<PollActionResult<P
  */
 export async function deletePoll(formData: FormData): Promise<PollActionResult<void>> {
   return withErrorHandling(async () => {
+    const supabase = await createSupabaseServerClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      throw new AuthenticationError('You must be logged in to delete a poll.');
+    }
+
     const input: DeletePollInput = {
       pollId: formData.get('pollId') as string,
-      userId: formData.get('userId') as string
+      userId: user.id // Use authenticated user's ID
     };
 
-    // Validate input
     assertValidInput(input, validateDeletePollInput);
-
-    // Verify ownership
     await verifyPollOwnership(input.pollId, input.userId);
 
-    const supabase = getSupabaseClient();
-
-    // Delete in correct order due to foreign key constraints
-    await supabase.from('votes').delete().eq('poll_id', input.pollId);
-    await supabase.from('poll_options').delete().eq('poll_id', input.pollId);
+    const adminSupabase = getSupabaseClient();
+    await adminSupabase.from('votes').delete().eq('poll_id', input.pollId);
+    await adminSupabase.from('poll_options').delete().eq('poll_id', input.pollId);
     
-    const { error } = await supabase
-      .from('polls')
-      .delete()
-      .eq('id', input.pollId);
+    const { error } = await adminSupabase.from('polls').delete().eq('id', input.pollId);
     
-    if (error) {
-      throw new Error(`Failed to delete poll: ${error.message}`);
-    }
+    if (error) throw new Error(`Failed to delete poll: ${error.message}`);
 
     revalidatePath('/polls');
   });
 }
 
 /**
- * Checks if a user has voted on a specific poll
+ * Checks if the current authenticated user has voted on a specific poll
  */
-export async function hasUserVoted(pollId: string, userId: string): Promise<boolean> {
-  if (!pollId || !userId) {
-    return false;
-  }
-
+export async function hasUserVoted(pollId: string): Promise<boolean> {
   try {
-    const supabase = getSupabaseClient();
-    
-    const { data, error } = await supabase.rpc('has_user_voted', {
+    const supabase = await createSupabaseServerClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!pollId || !user) {
+      return false;
+    }
+
+    const adminSupabase = getSupabaseClient();
+    const { data, error } = await adminSupabase.rpc('has_user_voted', {
       poll_uuid: pollId,
-      user_uuid: userId,
+      user_uuid: user.id,
     });
 
     if (error) {
@@ -217,14 +208,9 @@ export async function getTotalVotes(pollId: string): Promise<PollActionResult<nu
     }
 
     const supabase = getSupabaseClient();
-    
-    const { data, error } = await supabase.rpc('get_total_votes', {
-      poll_uuid: pollId,
-    });
+    const { data, error } = await supabase.rpc('get_total_votes', { poll_uuid: pollId });
 
-    if (error) {
-      throw new Error(`Failed to get total votes: ${error.message}`);
-    }
+    if (error) throw new Error(`Failed to get total votes: ${error.message}`);
 
     return data || 0;
   });

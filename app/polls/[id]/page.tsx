@@ -5,10 +5,16 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { supabase } from '@/lib/supabaseClient';
+import { 
+  votePoll, 
+  getPollResults, 
+  getTotalVotes, 
+  hasUserVoted 
+} from '@/lib/poll-actions';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { Database } from '@/types/supabase';
+import { supabase } from '@/lib/supabaseClient';
 
 type Poll = Database['public']['Tables']['polls']['Row'];
 type PollOption = Database['public']['Tables']['poll_options']['Row'];
@@ -30,10 +36,10 @@ export default function PollPage({ params }: { params: { id: string } }) {
   const [hasVoted, setHasVoted] = useState(false);
   const [totalVotes, setTotalVotes] = useState(0);
 
-  const fetchPollData = useCallback(async () => {
+  const fetchPollAndCheckVote = useCallback(async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      // Fetch poll details
+      // Fetch poll details first
       const { data: pollData, error: pollError } = await supabase
         .from('polls')
         .select('*')
@@ -43,54 +49,63 @@ export default function PollPage({ params }: { params: { id: string } }) {
       if (pollError) throw new Error('Poll not found');
       setPoll(pollData);
 
-      // Check if user has already voted
-      let voted = false;
-      if (user) {
-        const { data, error } = await supabase.rpc('has_user_voted', {
-          poll_uuid: params.id,
-          user_uuid: user.id,
-        });
-        if (error) throw error;
-        voted = data;
-        setHasVoted(data);
-      }
+      // Then, check if the user has voted
+      const userHasVoted = await hasUserVoted(params.id);
+      setHasVoted(userHasVoted);
 
-      if (voted) {
-        // Fetch poll results
-        const { data: resultsData, error: resultsError } = await supabase.rpc('get_poll_results', {
-          poll_uuid: params.id,
-        });
-        if (resultsError) throw resultsError;
-        setResults(resultsData);
-
-        const { data: totalVotesData, error: totalVotesError } = await supabase.rpc('get_total_votes', {
-          poll_uuid: params.id,
-        });
-        if (totalVotesError) throw totalVotesError;
-        setTotalVotes(totalVotesData);
-
-      } else {
-        // Fetch poll options
-        const { data: optionsData, error: optionsError } = await supabase
-          .from('poll_options')
-          .select('*')
-          .eq('poll_id', params.id)
-          .order('option_order', { ascending: true });
-
-        if (optionsError) throw optionsError;
-        setOptions(optionsData);
-      }
     } catch (error: any) {
       toast.error(error.message);
       router.push('/polls');
     } finally {
       setLoading(false);
     }
-  }, [params.id, router, user]);
+  }, [params.id, router]);
+
+  const fetchResults = useCallback(async () => {
+    try {
+      const [resultsResult, totalVotesResult] = await Promise.all([
+        getPollResults(params.id),
+        getTotalVotes(params.id)
+      ]);
+
+      if (resultsResult.error) throw new Error(resultsResult.error);
+      setResults(resultsResult.data || []);
+
+      if (totalVotesResult.error) throw new Error(totalVotesResult.error);
+      setTotalVotes(totalVotesResult.data || 0);
+
+    } catch (error: any) {
+      toast.error(error.message);
+    }
+  }, [params.id]);
+
+  const fetchOptions = useCallback(async () => {
+    try {
+      const { data: optionsData, error: optionsError } = await supabase
+        .from('poll_options')
+        .select('*')
+        .eq('poll_id', params.id)
+        .order('option_order', { ascending: true });
+
+      if (optionsError) throw optionsError;
+      setOptions(optionsData);
+    } catch (error: any) {
+      toast.error(error.message);
+    }
+  }, [params.id]);
+
 
   useEffect(() => {
-    fetchPollData();
-  }, [fetchPollData, hasVoted]);
+    fetchPollAndCheckVote();
+  }, [fetchPollAndCheckVote]);
+
+  useEffect(() => {
+    if (hasVoted) {
+      fetchResults();
+    } else if (poll) { // Only fetch options if poll exists and user hasn't voted
+      fetchOptions();
+    }
+  }, [hasVoted, poll, fetchResults, fetchOptions]);
 
   const handleVote = async () => {
     if (!user) {
@@ -102,19 +117,20 @@ export default function PollPage({ params }: { params: { id: string } }) {
       return;
     }
 
-    try {
-      const { error } = await supabase.from('votes').insert({
-        poll_id: params.id,
-        option_id: selectedOption,
-        voter_id: user.id,
-      });
+    const formData = new FormData();
+    formData.append('pollId', params.id);
+    formData.append('optionId', selectedOption);
 
-      if (error) throw error;
+    try {
+      const result = await votePoll(formData);
+      if (result.error) {
+        throw new Error(result.error);
+      }
 
       toast.success('Vote submitted successfully!');
       setHasVoted(true);
     } catch (error: any) {
-      toast.error(error.message);
+      toast.error(error.message || 'Failed to submit vote.');
     }
   };
 
