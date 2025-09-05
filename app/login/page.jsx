@@ -2,21 +2,29 @@
 
 import { useState } from 'react';
 
+/**
+ * LoginPage component provides a simple login form.
+ * This component is for demonstration purposes and uses mock authentication.
+ */
 export default function LoginPage() {
+  // State for managing user input, loading, and error messages
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-  // This is a placeholder for a real API call.
-  // In a real app, you would use a library like Firebase, Auth0, or Supabase.
+  /**
+   * Handles the login form submission.
+   * Simulates an API call and checks for hardcoded credentials.
+   * @param {React.FormEvent} e - The form submission event.
+   */
   const handleLogin = (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
-    // Simulate an API call
+    // Simulate an API call with a timeout
     setTimeout(() => {
       // Simple validation for demonstration purposes
       if (email === 'test@example.com' && password === 'password123') {
@@ -28,6 +36,7 @@ export default function LoginPage() {
     }, 1500);
   };
 
+  // Display a success message if login is successful
   if (isLoggedIn) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100">
@@ -39,6 +48,7 @@ export default function LoginPage() {
     );
   }
 
+  // Render the login form
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100">
       <div className="p-8 bg-white rounded-lg shadow-md w-96">

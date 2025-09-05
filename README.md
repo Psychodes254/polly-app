@@ -1,39 +1,95 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Polly - A Simple Polling App
 
-## Getting Started
+This is a full-stack polling application built with Next.js and Supabase. It allows users to create polls, vote on them, and view the results in real-time.
 
-First, run the development server:
+## Tech Stack
+
+-   **Framework:** [Next.js](https://nextjs.org/) (with App Router)
+-   **Authentication:** [Supabase Auth](https://supabase.com/auth)
+-   **Database:** [Supabase (Postgres)](https://supabase.com/database)
+-   **Styling:** [Tailwind CSS](https://tailwindcss.com/)
+-   **UI Components:** [shadcn/ui](https://ui.shadcn.com/)
+-   **Language:** [TypeScript](https://www.typescriptlang.org/)
+-   **Testing:** [Jest](https://jestjs.io/)
+
+## Features
+
+-   User authentication (Sign up, Sign in)
+-   Create, view, edit, and delete polls
+-   Vote on polls
+-   Real-time poll results
+-   Protected routes for authenticated users
+
+## Setup and Installation
+
+To run this project locally, follow these steps:
+
+### 1. Clone the repository
+
+```bash
+git clone <repository-url>
+cd polly-app
+```
+
+### 2. Install dependencies
+
+```bash
+npm install
+```
+
+### 3. Set up Supabase
+
+1.  Create a new project on [Supabase](https://supabase.com/).
+2.  Go to the **SQL Editor** in your Supabase project dashboard.
+3.  Run the SQL statements from `supabase/migrations` to create the necessary tables (`polls`, `poll_options`, `votes`).
+4.  Go to **Project Settings > API** to find your project URL and API keys.
+
+### 4. Configure Environment Variables
+
+Create a `.env.local` file in the root of the project and add the following variables:
+
+```
+NEXT_PUBLIC_SUPABASE_URL=your-supabase-project-url
+SUPABASE_SECRET_KEY=your-supabase-secret-key
+```
+
+Replace `your-supabase-project-url` and `your-supabase-secret-key` with the values from your Supabase project.
+
+## How to Run the App Locally
+
+Once the setup is complete, you can run the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the application.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Testing
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+To run the tests, use the following command:
 
-## Learn More
+```bash
+npm test
+```
 
-To learn more about Next.js, take a look at the following resources:
+This will run the Jest tests for the application.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Usage Examples
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Creating a Poll
 
-## Deploy on Vercel
+1.  Sign up for an account or sign in.
+2.  Navigate to the "Create Poll" page.
+3.  Fill in the title, an optional description, and at least two options.
+4.  Click "Create Poll" to submit.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Voting on a Poll
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1.  From the main polls page, click on a poll to view it.
+2.  Select an option to vote for.
+3.  Click "Submit Vote".
+4.  After voting, you will see the poll results.
 
 ## Security Vulnerabilities and Remediation
 

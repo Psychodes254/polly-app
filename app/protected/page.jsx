@@ -6,19 +6,28 @@ import React, { useState, useEffect } from 'react';
 // to avoid external dependencies like 'next/navigation' and 'supabaseClient'.
 // It manages its own state for 'logged in' status and loading.
 
+/**
+ * ProtectedPage component demonstrates a client-side protected route.
+ * It simulates an authentication check and displays content only to logged-in users.
+ * This serves as a basic user dashboard or profile page.
+ */
 export default function ProtectedPage() {
+  // State for loading status, authentication status, and user data
   const [loading, setLoading] = useState(true);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    // Simulate an authentication check, like verifying a session or token.
-    // In a real application, this would be an API call.
+    /**
+     * Simulates an asynchronous authentication check.
+     * In a real application, this would involve verifying a session token with a backend.
+     */
     const mockAuthCheck = () => {
       setLoading(true);
       setTimeout(() => {
+        // In this demo, we assume the user is always authenticated.
         const mockUser = { email: 'user@example.com' };
-        setIsLoggedIn(true); // Assuming the user is authenticated for this demo.
+        setIsLoggedIn(true);
         setUser(mockUser);
         setLoading(false);
       }, 1500); // Simulate a network delay
@@ -27,9 +36,11 @@ export default function ProtectedPage() {
     mockAuthCheck();
   }, []);
 
+  /**
+   * Simulates a logout process by resetting the component's state.
+   */
   const handleLogout = () => {
-    // Simulate logging out by resetting the state.
-    // In a real app, this would be a call to a signOut function.
+    // In a real app, this would call a signOut function from an auth provider.
     setLoading(true);
     setTimeout(() => {
       setIsLoggedIn(false);
@@ -38,7 +49,7 @@ export default function ProtectedPage() {
     }, 500);
   };
 
-  // Render a loading state while the authentication check is in progress.
+  // Render a loading indicator while checking authentication.
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
@@ -47,8 +58,8 @@ export default function ProtectedPage() {
     );
   }
 
-  // If the user is not logged in after the check, show a message and a link.
-  // This simulates the redirect functionality.
+  // If the user is not logged in, display an access denied message.
+  // This simulates a redirect to a login page.
   if (!isLoggedIn) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900 p-4">
@@ -65,7 +76,7 @@ export default function ProtectedPage() {
     );
   }
 
-  // If the user is logged in, show the protected content.
+  // If the user is logged in, display the protected content (dashboard).
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900 p-4 font-sans text-gray-900 dark:text-gray-100">
       <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-xl max-w-lg w-full text-center border border-gray-200 dark:border-gray-700">

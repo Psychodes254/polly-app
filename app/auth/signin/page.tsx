@@ -9,26 +9,43 @@ import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
+/**
+ * SignIn component provides a user interface for authentication.
+ * It includes fields for email and password, and handles the sign-in process
+ * using Supabase authentication.
+ */
 export default function SignIn() {
+  // State for managing user input and loading status
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
+  /**
+   * Handles the form submission for signing in.
+   * It prevents the default form submission, sets loading to true,
+   * and calls the Supabase `signInWithPassword` method.
+   * @param {React.FormEvent} e - The form submission event.
+   */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
+      // Attempt to sign in with Supabase
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
+        // Display an error toast if sign-in fails
         toast.error(error.message);
       } else {
+        // Display a success toast and redirect on successful sign-in
         toast.success('Signed in successfully!');
         router.push('/');
       }
     } catch (error: any) {
+      // Display an error toast for any other exceptions
       toast.error(error.message);
     } finally {
+      // Reset loading state
       setLoading(false);
     }
   };

@@ -24,7 +24,10 @@ import { withErrorHandling } from '@/lib/utils/error-utils';
 import { createSupabaseServerClient } from '@/lib/utils/supabase/server';
 
 /**
- * Creates a new poll with options
+ * Server action to create a new poll.
+ * Handles user authentication, input validation, and database insertion.
+ * @param {FormData} formData - The form data from the create poll form.
+ * @returns {Promise<PollActionResult<{ pollId: string }>>} - The result of the action, containing the new poll ID or an error.
  */
 export async function createPoll(formData: FormData): Promise<PollActionResult<{ pollId: string }>> {
   return withErrorHandling(async () => {
@@ -79,7 +82,10 @@ export async function createPoll(formData: FormData): Promise<PollActionResult<{
 }
 
 /**
- * Submits a vote for a poll option
+ * Server action to submit a vote for a poll option.
+ * Handles user authentication, input validation, and prevents duplicate votes.
+ * @param {FormData} formData - The form data containing poll and option IDs.
+ * @returns {Promise<PollActionResult<void>>} - The result of the action.
  */
 export async function votePoll(formData: FormData): Promise<PollActionResult<void>> {
   return withErrorHandling(async () => {
@@ -119,7 +125,9 @@ export async function votePoll(formData: FormData): Promise<PollActionResult<voi
 }
 
 /**
- * Gets poll results with vote counts
+ * Retrieves the results of a poll, including vote counts for each option.
+ * @param {string} pollId - The ID of the poll to get results for.
+ * @returns {Promise<PollActionResult<PollResult[]>>} - The poll results or an error.
  */
 export async function getPollResults(pollId: string): Promise<PollActionResult<PollResult[]>> {
   return withErrorHandling(async () => {
@@ -137,7 +145,10 @@ export async function getPollResults(pollId: string): Promise<PollActionResult<P
 }
 
 /**
- * Deletes a poll and all associated data
+ * Server action to delete a poll and all its associated data.
+ * Handles user authentication and ownership verification.
+ * @param {FormData} formData - The form data containing the poll ID.
+ * @returns {Promise<PollActionResult<void>>} - The result of the action.
  */
 export async function deletePoll(formData: FormData): Promise<PollActionResult<void>> {
   return withErrorHandling(async () => {
@@ -169,7 +180,9 @@ export async function deletePoll(formData: FormData): Promise<PollActionResult<v
 }
 
 /**
- * Checks if the current authenticated user has voted on a specific poll
+ * Checks if the currently authenticated user has voted on a specific poll.
+ * @param {string} pollId - The ID of the poll to check.
+ * @returns {Promise<boolean>} - True if the user has voted, false otherwise.
  */
 export async function hasUserVoted(pollId: string): Promise<boolean> {
   try {
@@ -199,7 +212,9 @@ export async function hasUserVoted(pollId: string): Promise<boolean> {
 }
 
 /**
- * Gets the total number of votes for a poll
+ * Gets the total number of votes for a specific poll.
+ * @param {string} pollId - The ID of the poll.
+ * @returns {Promise<PollActionResult<number>>} - The total vote count or an error.
  */
 export async function getTotalVotes(pollId: string): Promise<PollActionResult<number>> {
   return withErrorHandling(async () => {

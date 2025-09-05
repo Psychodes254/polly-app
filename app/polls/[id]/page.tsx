@@ -25,6 +25,13 @@ type PollResult = {
   option_order: number;
 };
 
+/**
+ * PollPage component displays a single poll, allows voting, and shows results.
+ * It handles fetching poll data, submitting votes, and displaying results.
+ * @param {object} props - The component props.
+ * @param {object} props.params - The route parameters, containing the poll ID.
+ * @param {string} props.params.id - The ID of the poll to display.
+ */
 export default function PollPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const { user } = useAuth();
@@ -36,6 +43,10 @@ export default function PollPage({ params }: { params: { id: string } }) {
   const [hasVoted, setHasVoted] = useState(false);
   const [totalVotes, setTotalVotes] = useState(0);
 
+  /**
+   * Fetches the main poll data and checks if the current user has already voted.
+   * It sets the poll state and the hasVoted state.
+   */
   const fetchPollAndCheckVote = useCallback(async () => {
     setLoading(true);
     try {
@@ -61,6 +72,10 @@ export default function PollPage({ params }: { params: { id: string } }) {
     }
   }, [params.id, router]);
 
+  /**
+   * Fetches the poll results, including vote counts for each option and the total number of votes.
+   * This is called only after a user has voted.
+   */
   const fetchResults = useCallback(async () => {
     try {
       const [resultsResult, totalVotesResult] = await Promise.all([
@@ -79,6 +94,10 @@ export default function PollPage({ params }: { params: { id: string } }) {
     }
   }, [params.id]);
 
+  /**
+   * Fetches the poll options for voting.
+   * This is called when the user has not yet voted.
+   */
   const fetchOptions = useCallback(async () => {
     try {
       const { data: optionsData, error: optionsError } = await supabase
@@ -107,6 +126,10 @@ export default function PollPage({ params }: { params: { id: string } }) {
     }
   }, [hasVoted, poll, fetchResults, fetchOptions]);
 
+  /**
+   * Handles the vote submission.
+   * It calls the `votePoll` server action and updates the UI to show the results.
+   */
   const handleVote = async () => {
     if (!user) {
       toast.error('You must be logged in to vote.');

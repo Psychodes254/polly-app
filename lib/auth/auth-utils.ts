@@ -1,6 +1,9 @@
 import { getSupabaseClient } from '@/lib/supabase-client';
 import { PollActionResult } from '@/lib/types/poll-types';
 
+/**
+ * Custom error for authentication failures.
+ */
 export class AuthenticationError extends Error {
   constructor(message: string) {
     super(message);
@@ -8,6 +11,9 @@ export class AuthenticationError extends Error {
   }
 }
 
+/**
+ * Custom error for authorization failures.
+ */
 export class AuthorizationError extends Error {
   constructor(message: string) {
     super(message);
@@ -16,7 +22,9 @@ export class AuthorizationError extends Error {
 }
 
 /**
- * Validates that a user ID is provided and not empty
+ * Validates that a user ID is provided and not empty.
+ * Throws an AuthenticationError if the user ID is missing.
+ * @param {string | null | undefined} userId - The user ID to validate.
  */
 export function validateUserId(userId: string | null | undefined): asserts userId is string {
   if (!userId || userId.trim() === '') {
@@ -25,7 +33,10 @@ export function validateUserId(userId: string | null | undefined): asserts userI
 }
 
 /**
- * Verifies that a user owns a specific poll
+ * Verifies that a user owns a specific poll.
+ * Throws an error if ownership cannot be verified or if the poll does not exist.
+ * @param {string} pollId - The ID of the poll to check.
+ * @param {string} userId - The ID of the user to verify as the owner.
  */
 export async function verifyPollOwnership(pollId: string, userId: string): Promise<void> {
   validateUserId(userId);
@@ -52,7 +63,10 @@ export async function verifyPollOwnership(pollId: string, userId: string): Promi
 }
 
 /**
- * Checks if a user has already voted on a poll
+ * Checks if a user has already voted on a specific poll.
+ * @param {string} pollId - The ID of the poll.
+ * @param {string} voterId - The ID of the user (voter).
+ * @returns {Promise<boolean>} - True if the user has already voted, false otherwise.
  */
 export async function checkExistingVote(pollId: string, voterId: string): Promise<boolean> {
   const supabase = getSupabaseClient();

@@ -11,24 +11,43 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { createPoll } from '@/lib/poll-actions';
 
+/**
+ * CreatePollPage component allows authenticated users to create new polls.
+ * It provides a form for entering a title, description, and multiple options.
+ */
 export default function CreatePollPage() {
   const router = useRouter();
   const { user } = useAuth();
+
+  // State for managing form inputs and submission status
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [options, setOptions] = useState(['', '']);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  /**
+   * Adds a new empty option field to the form.
+   */
   const handleAddOption = () => {
     setOptions([...options, '']);
   };
 
+  /**
+   * Updates the value of a specific option.
+   * @param {number} index - The index of the option to update.
+   * @param {string} value - The new value of the option.
+   */
   const handleOptionChange = (index: number, value: string) => {
     const newOptions = [...options];
     newOptions[index] = value;
     setOptions(newOptions);
   };
 
+  /**
+   * Removes an option field from the form.
+   * Ensures a minimum of 2 options are always present.
+   * @param {number} index - The index of the option to remove.
+   */
   const handleRemoveOption = (index: number) => {
     if (options.length <= 2) return; // Minimum 2 options
     const newOptions = [...options];
@@ -36,22 +55,30 @@ export default function CreatePollPage() {
     setOptions(newOptions);
   };
 
+  /**
+   * Handles the form submission to create a new poll.
+   * It performs validation and calls the `createPoll` server action.
+   * @param {React.FormEvent} e - The form submission event.
+   */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
+    // Ensure user is logged in
     if (!user) {
       toast.error('You must be logged in to create a poll.');
       setIsSubmitting(false);
       return;
     }
 
+    // Validate poll title
     if (!title.trim()) {
       toast.error('Please enter a poll title');
       setIsSubmitting(false);
       return;
     }
 
+    // Validate poll options
     const validOptions = options.filter(option => option.trim() !== '');
     if (validOptions.length < 2) {
       toast.error('Please provide at least 2 valid options');
@@ -59,6 +86,7 @@ export default function CreatePollPage() {
       return;
     }
 
+    // Create FormData to send to the server action
     const formData = new FormData();
     formData.append('title', title);
     formData.append('description', description);
@@ -66,6 +94,7 @@ export default function CreatePollPage() {
     // The creatorId is now handled securely on the server.
 
     try {
+      // Call the server action to create the poll
       const result = await createPoll(formData);
 
       if (result.error) {

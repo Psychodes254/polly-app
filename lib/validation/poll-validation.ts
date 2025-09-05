@@ -1,5 +1,8 @@
 import { CreatePollInput, VotePollInput, DeletePollInput, ValidationResult } from '@/lib/types/poll-types';
 
+/**
+ * Custom error for validation failures.
+ */
 export class ValidationError extends Error {
   constructor(public errors: string[]) {
     super(`Validation failed: ${errors.join(', ')}`);
@@ -8,7 +11,9 @@ export class ValidationError extends Error {
 }
 
 /**
- * Validates poll creation input
+ * Validates the input for creating a new poll.
+ * @param {CreatePollInput} input - The poll creation data.
+ * @returns {ValidationResult} - The result of the validation, indicating if it's valid and any errors.
  */
 export function validateCreatePollInput(input: CreatePollInput): ValidationResult {
   const errors: string[] = [];
@@ -70,7 +75,9 @@ export function validateCreatePollInput(input: CreatePollInput): ValidationResul
 }
 
 /**
- * Validates vote input
+ * Validates the input for submitting a vote.
+ * @param {VotePollInput} input - The vote submission data.
+ * @returns {ValidationResult} - The result of the validation.
  */
 export function validateVotePollInput(input: VotePollInput): ValidationResult {
   const errors: string[] = [];
@@ -94,7 +101,9 @@ export function validateVotePollInput(input: VotePollInput): ValidationResult {
 }
 
 /**
- * Validates delete poll input
+ * Validates the input for deleting a poll.
+ * @param {DeletePollInput} input - The poll deletion data.
+ * @returns {ValidationResult} - The result of the validation.
  */
 export function validateDeletePollInput(input: DeletePollInput): ValidationResult {
   const errors: string[] = [];
@@ -114,7 +123,10 @@ export function validateDeletePollInput(input: DeletePollInput): ValidationResul
 }
 
 /**
- * Throws ValidationError if input is invalid
+ * Asserts that the given input is valid according to the provided validator function.
+ * Throws a ValidationError if the input is invalid.
+ * @param {T} input - The input data to validate.
+ * @param {(input: T) => ValidationResult} validator - The function to use for validation.
  */
 export function assertValidInput<T>(input: T, validator: (input: T) => ValidationResult): void {
   const result = validator(input);

@@ -14,12 +14,17 @@ import { Database } from '@/types/supabase';
 type Poll = Database['public']['Tables']['polls']['Row'];
 type PollOption = Database['public']['Tables']['poll_options']['Row'];
 
+/**
+ * EditPollPage component allows the creator of a poll to edit its details.
+ * It fetches the poll data and provides a form to update the title, description, and options.
+ */
 export default function EditPollPage() {
   const router = useRouter();
   const params = useParams();
   const { id: pollId } = params;
   const { user } = useAuth();
 
+  // State for managing poll data, form inputs, and loading status
   const [poll, setPoll] = useState<Poll | null>(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -28,10 +33,15 @@ export default function EditPollPage() {
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  /**
+   * Fetches the poll data from the database.
+   * It also verifies that the current user is the creator of the poll.
+   */
   const fetchPoll = useCallback(async () => {
     if (!pollId) return;
     try {
       setLoading(true);
+      // Fetch poll details
       const { data: pollData, error: pollError } = await supabase
         .from('polls')
         .select('*')
@@ -40,6 +50,7 @@ export default function EditPollPage() {
 
       if (pollError) throw new Error('Poll not found');
 
+      // Authorize user: only the creator can edit
       if (pollData.creator_id !== user?.id) {
         toast.error('You are not authorized to edit this poll.');
         router.push(`/polls/${pollId}`);
@@ -50,6 +61,7 @@ export default function EditPollPage() {
       setTitle(pollData.title);
       setDescription(pollData.description || '');
 
+      // Fetch poll options
       const { data: optionsData, error: optionsError } = await supabase
         .from('poll_options')
         .select('*')
@@ -74,6 +86,9 @@ export default function EditPollPage() {
     }
   }, [user, fetchPoll]);
 
+  /**
+   * Adds a new empty option to the form.
+   */
   const handleAddOption = () => {
     const newOption: PollOption = {
       id: `new-${Date.now()}`,
@@ -85,12 +100,21 @@ export default function EditPollPage() {
     setOptions([...options, newOption]);
   };
 
+  /**
+   * Updates the text of a specific option.
+   * @param {number} index - The index of the option to update.
+   * @param {string} value - The new text for the option.
+   */
   const handleOptionChange = (index: number, value: string) => {
     const newOptions = [...options];
     newOptions[index].option_text = value;
     setOptions(newOptions);
   };
 
+  /**
+   * Removes an option from the form.
+   * @param {number} index - The index of the option to remove.
+   */
   const handleRemoveOption = (index: number) => {
     if (options.length <= 2) {
       toast.error('A poll must have at least 2 options.');
@@ -101,16 +125,23 @@ export default function EditPollPage() {
     setOptions(newOptions);
   };
 
+  /**
+   * Handles the form submission to update the poll.
+   * It determines which options to add, update, or delete and performs the necessary database operations.
+   * @param {React.FormEvent} e - The form submission event.
+   */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
+    // Validate title
     if (!title.trim()) {
       toast.error('Please enter a poll title');
       setIsSubmitting(false);
       return;
     }
 
+    // Validate options
     const validOptions = options.filter(option => option.option_text.trim() !== '');
     if (validOptions.length < 2) {
       toast.error('Please provide at least 2 valid options');
@@ -119,7 +150,7 @@ export default function EditPollPage() {
     }
 
     try {
-      // Update poll details
+      // Update poll details (title and description)
       const { error: pollError } = await supabase
         .from('polls')
         .update({ title, description })
@@ -132,7 +163,7 @@ export default function EditPollPage() {
       const optionsToAdd = options.filter(opt => !initialOptions.some(initOpt => initOpt.id === opt.id));
       const optionsToDelete = initialOptions.filter(initOpt => !options.some(opt => opt.id === initOpt.id));
 
-      // Perform database operations
+      // Perform database operations for options
       if (optionsToUpdate.length > 0) {
         const updates = optionsToUpdate.map(opt => supabase.from('poll_options').update({ option_text: opt.option_text }).eq('id', opt.id));
         await Promise.all(updates);
